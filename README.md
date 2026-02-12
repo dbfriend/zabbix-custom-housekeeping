@@ -28,11 +28,8 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   - `deleted_by`, `executed_at`, `started_at`, `finished_at`,
   - `reason`, `sql_statement`.
 
-- `zabbix.history_log`  
+- `zabbix.<APPLICATION-TABLES>`  
   *Purpose:* Time‑series history (inferred from name). Must contain a `clock` column comparable to `UNIX_TIMESTAMP(...)`.
-
-- `zabbix.trends`  
-  *Purpose:* Aggregated/rolled‑up time‑series trends (inferred from name). Must contain a `clock` column comparable to `UNIX_TIMESTAMP(...)`.
 
 > **Note:** Only the above tables are referenced (directly or through parameters). The procedure is generic and can target any table `<schema>.<table>` that contains a `clock` field of a compatible numeric type.
 
@@ -42,11 +39,11 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   *Inputs:*  
   - `p_schema_name VARCHAR(128)` — Target schema for deletion.  
   - `p_table_name VARCHAR(128)` — Target table for deletion.  
-  - `p_retention BIGINT UNSIGNED` — Retention in **days**; must be `\>= 1`.  
+  - `p_retention BIGINT UNSIGNED` — Retention in **days**; must be `>= 1`.  
   - `p_reason VARCHAR(1024)` — Free‑text reason for audit logging.  
   *Behavior & key logic:*  
-  - Validates inputs (non‑empty schema/table; retention `\>= 1`).  
-  - Builds a **dynamic** `DELETE FROM \`\<schema\>\`.\`\<table\>\` WHERE clock < UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)` with backtick‑escaping.  
+  - Validates inputs (non‑empty schema/table; retention `>= 1`).  
+  - Builds a **dynamic** `DELETE FROM \<schema\>.\<table\> WHERE clock < UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)` with backtick‑escaping.  
   - Measures duration (`NOW(6)`, `TIMESTAMPDIFF(MICROSECOND, ...)`).  
   - Captures `ROW_COUNT()` for deleted rows.  
   - Inserts a log row into `housekeeping_log` with the generated SQL and metadata.  
