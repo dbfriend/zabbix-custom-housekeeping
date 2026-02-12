@@ -75,7 +75,7 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   The event calls the stored procedure twice daily with table‑specific retention settings.
 
 - **`sp_housekeeping_custom` → target tables**  
-  The procedure **deletes** from the parameterized table \"<schema>\".\"<table>\" where `clock` is older than `NOW() - INTERVAL <retention> DAY`.
+  The procedure **deletes** from the parameterized table \"\<schema\>\".\"\<table\>\" where `clock` is older than `NOW() - INTERVAL <retention> DAY`.
 
 - **`sp_housekeeping_custom` → `housekeeping_log`**  
   After each delete, the procedure **inserts** a log entry capturing the action and performance metrics.
