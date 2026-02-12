@@ -43,7 +43,7 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   - `p_reason VARCHAR(1024)` — Free‑text reason for audit logging.  
   *Behavior & key logic:*  
   - Validates inputs (non‑empty schema/table; retention `>= 1`).  
-  - Builds a **dynamic** `DELETE FROM \<schema\>.\<table\> WHERE clock < UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)` with backtick‑escaping.  
+  - Builds a **dynamic** `DELETE FROM <schema>.<table> WHERE clock < UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)` with backtick‑escaping.  
   - Measures duration (`NOW(6)`, `TIMESTAMPDIFF(MICROSECOND, ...)`).  
   - Captures `ROW_COUNT()` for deleted rows.  
   - Inserts a log row into `housekeeping_log` with the generated SQL and metadata.  
@@ -72,9 +72,8 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
 - `housekeeping_log` is central for observability and audit.  
 - The `clock` column in target tables is critical to the retention logic.
 
-### 4.1 Visual Dependency Diagrams (Mermaid)
+### 4.1 Visual Dependency Diagrams
 
-**Core data flow (scheduled housekeeping)**
 ```mermaid
 graph LR
   subgraph Zabbix Schema
@@ -89,7 +88,17 @@ graph LR
 ```
 
 ## 5. Installation & Deployment
-**Creation order (implied by dependencies):**
+
+Execute python script via MySQL Shell which will create all necessary db objects:
+
+```
+$ mysqlsh admin@cir1mysql00003do-test01.sne3001.de1vcn014230o1.oraclevcn.com --py
+MySQL Shell 8.4.6
+...
+MySQL cir1mysql00003do-test01.sne3001.de1vcn014230o1.oraclevcn.com:33060+ ssl  Py > \source sp_housekeeping_custom.py
+```
+
+**Script creation order (implied by dependencies):**
 1. **Create table** `housekeeping_log` with at least the columns used by the procedure:
    - `schema_name`, `table_name`, `deleted_rows`, `duration_us`,
    - `deleted_by`, `executed_at`, `started_at`, `finished_at`,
