@@ -42,17 +42,14 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   *Inputs:*  
   - `p_schema_name VARCHAR(128)` — Target schema for deletion.  
   - `p_table_name VARCHAR(128)` — Target table for deletion.  
-  - `p_retention BIGINT UNSIGNED` — Retention in **days**; must be `>= 1`.  
+  - `p_retention BIGINT UNSIGNED` — Retention in **days**; must be `\>= 1`.  
   - `p_reason VARCHAR(1024)` — Free‑text reason for audit logging.  
   *Behavior & key logic:*  
-  - Validates inputs (non‑empty schema/table; retention `>= 1`).  
-  - Builds a **dynamic** `DELETE FROM \`<schema>\`.\`<table>\` WHERE clock < UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)` with backtick‑escaping.  
+  - Validates inputs (non‑empty schema/table; retention `\>= 1`).  
+  - Builds a **dynamic** `DELETE FROM \`\<schema\>\`.\`\<table\>\` WHERE clock < UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)` with backtick‑escaping.  
   - Measures duration (`NOW(6)`, `TIMESTAMPDIFF(MICROSECOND, ...)`).  
   - Captures `ROW_COUNT()` for deleted rows.  
   - Inserts a log row into `housekeeping_log` with the generated SQL and metadata.  
-  *Reads/Writes:*  
-  - **Deletions on target tables:** deletes old rows (DML).  
-  - **Writes:** inserts execution log.
 
 ### Events / Schedulers
 - `ev_housekeeping_custom` (MySQL Event)  
@@ -61,20 +58,14 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   *Actions:*  
   - `CALL zabbix.sp_housekeeping_custom( <SCHEMA> , <TABLE>, <RETENTION-DAYS>, <COMMENT>);`  
 
-### Sequences / Synonyms / Other
-- _None._
-
-### Views
-- _None._
-
-### Triggers
+### Sequences / Synonyms / Views / Triggers
 - _None._
 
 ## 4. Dependencies Between SQL Objects
 - **`ev_housekeeping_custom` → `zabbix.sp_housekeeping_custom`**  
   The event calls the stored procedure twice daily with table‑specific retention settings.
 
-- **`sp_housekeeping_custom` → target tables**  
+- **`sp_housekeeping_custom` → `target tables`**  
   The procedure **deletes** from the parameterized table \"\<schema\>\".\"\<table\>\" where `clock` is older than `NOW() - INTERVAL <retention> DAY`.
 
 - **`sp_housekeeping_custom` → `housekeeping_log`**  
