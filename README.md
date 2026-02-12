@@ -1,4 +1,4 @@
-# Database Housekeeping for Zabbix‑Style Time‑Series Tables
+# Database Housekeeping for Zabbix Tables
 
 ## 1. Project Overview
 This project provides a MySQL stored procedure and a scheduled event to perform automated housekeeping (time‑based deletion) on large, append‑only time‑series tables. It also records detailed execution metrics in a centralized housekeeping log for auditability and operations insight.
@@ -36,7 +36,7 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
 
 > **Note:** Only the above tables are referenced (directly or through parameters). The procedure is generic and can target any table `<schema>.<table>` that contains a `clock` field of a compatible numeric type.
 
-### Stored Procedures / Functions
+### Stored Procedures
 - `sp_housekeeping_custom` (Stored Procedure)  
   *Purpose:* Delete rows older than a specified retention (days) from a target table and log the run.  
   *Inputs:*  
@@ -51,16 +51,15 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   - Captures `ROW_COUNT()` for deleted rows.  
   - Inserts a log row into `housekeeping_log` with the generated SQL and metadata.  
   *Reads/Writes:*  
-  - **Reads/Writes target table:** deletes old rows (DML).  
-  - **Writes `housekeeping_log`:** inserts execution log.
+  - **Deletions on target tables:** deletes old rows (DML).  
+  - **Writes:** inserts execution log.
 
 ### Events / Schedulers
 - `ev_housekeeping_custom` (MySQL Event)  
   *Purpose:* Run daily housekeeping at a fixed time.  
   *Schedule:* `EVERY 1 DAY STARTS TIMESTAMP(CURRENT_DATE, '22:00:00')`.  
   *Actions:*  
-  - `CALL zabbix.sp_housekeeping_custom('zabbix', 'history_log', 26, 'daily housekeeping via scheduler');`  
-  - `CALL zabbix.sp_housekeeping_custom('zabbix', 'trends', 160, 'daily housekeeping via scheduler');`
+  - `CALL zabbix.sp_housekeeping_custom( <SCHEMA> , <TABLE>, <RETENTION-DAYS>, <COMMENT>);`  
 
 ### Sequences / Synonyms / Other
 - _None._
@@ -76,7 +75,7 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
   The event calls the stored procedure twice daily with table‑specific retention settings.
 
 - **`sp_housekeeping_custom` → target tables**  
-  The procedure **deletes** from the parameterized table "<schema>"."<table>" where `clock` is older than `NOW() - INTERVAL <retention> DAY`.
+  The procedure **deletes** from the parameterized table \"<schema>\".\"<table>\" where `clock` is older than `NOW() - INTERVAL <retention> DAY`.
 
 - **`sp_housekeeping_custom` → `housekeeping_log`**  
   After each delete, the procedure **inserts** a log entry capturing the action and performance metrics.
@@ -103,7 +102,7 @@ graph LR
 
 ## 5. Installation & Deployment
 **Creation order (implied by dependencies):**
-1. **Create `housekeeping_log` table** with at least the columns used by the procedure:
+1. **Create table** `housekeeping_log` with at least the columns used by the procedure:
    - `schema_name`, `table_name`, `deleted_rows`, `duration_us`,
    - `deleted_by`, `executed_at`, `started_at`, `finished_at`,
    - `reason`, `sql_statement`.
