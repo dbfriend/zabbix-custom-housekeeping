@@ -95,10 +95,10 @@ graph LR
 Execute python script sp_housekeeping_custom.py via MySQL Shell which will create all necessary db objects:
 
 ```
-$ mysqlsh admin@cir1mysql00003do-test01.sne3001.de1vcn014230o1.oraclevcn.com --py
+$ mysqlsh admin@MYSQLSYSTEM --py
 MySQL Shell 8.4.6
 ...
-MySQL cir1mysql00003do-test01.sne3001.de1vcn014230o1.oraclevcn.com:33060+ ssl Py> \source sp_housekeeping_custom.py
+MySQL MYSQLSYSTEM:33060+ ssl Py> \source sp_housekeeping_custom.py
 ```
 
 **Script creation order (implied by dependencies):**
