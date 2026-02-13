@@ -1,6 +1,6 @@
 # Database Housekeeping for Zabbix Tables
 
-<img width="405" height="380" alt="housekeeping" src="https://github.com/user-attachments/assets/a3ef9430-2bf3-4fca-8543-2cd32cfbd82e" />
+<img width="205" alt="housekeeping" src="https://github.com/user-attachments/assets/a3ef9430-2bf3-4fca-8543-2cd32cfbd82e" class="center" />
 
 
 ## 1. Project Overview
