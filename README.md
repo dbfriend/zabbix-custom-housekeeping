@@ -2,8 +2,9 @@
 <div align="center">
 <img width="205" alt="housekeeping" src="https://github.com/user-attachments/assets/a3ef9430-2bf3-4fca-8543-2cd32cfbd82e"/>
 </div>
+
 ## 1. Project Overview
-This project provides a MySQL stored procedure and a scheduled event to perform automated housekeeping (time‑based deletion) on large, append‑only time‑series tables. It also records detailed execution metrics in a centralized housekeeping log for auditability and operations insight.
+This project provides a MySQL process to perform automated housekeeping (time‑based deletion) on large, append‑only time‑series tables. It also records detailed execution metrics in a centralized housekeeping log for auditability and operations insight.
 
 **Primary domain:** operational housekeeping / data retention for monitoring or telemetry data
 
