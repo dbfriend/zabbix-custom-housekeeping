@@ -1,7 +1,7 @@
 # Database Housekeeping for Zabbix Tables
-<img width="205" alt="housekeeping" src="https://github.com/user-attachments/assets/a3ef9430-2bf3-4fca-8543-2cd32cfbd82e" align="middle" />
- />
-
+<div align="center">
+<img width="205" alt="housekeeping" src="https://github.com/user-attachments/assets/a3ef9430-2bf3-4fca-8543-2cd32cfbd82e"/>
+</div>
 ## 1. Project Overview
 This project provides a MySQL stored procedure and a scheduled event to perform automated housekeeping (time‑based deletion) on large, append‑only time‑series tables. It also records detailed execution metrics in a centralized housekeeping log for auditability and operations insight.
 
