@@ -1,6 +1,25 @@
 # sp_housekeeping_custom.py
 sess = shell.get_session()   # use current connection
 
+
+# Recreate housekeeping logging table 
+sess.run_sql("DROP TABLE IF EXISTS zabbix.housekeeping_log")
+
+sess.run_sql("""
+CREATE TABLE IF NOT EXISTS zabbix.housekeeping_log (
+    id            BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    schema_name   VARCHAR(128)     NOT NULL,
+    table_name    VARCHAR(128)     NOT NULL,
+    deleted_rows  BIGINT UNSIGNED NOT NULL,
+    deleted_by    VARCHAR(128)    NOT NULL,
+    started_at      TIMESTAMP     NOT NULL, 
+    finished_at     TIMESTAMP     NOT NULL,
+    duration_us     BIGINT UNSIGNED NULL,
+    reason          VARCHAR(1024)    NULL,
+    sql_statement   VARCHAR(4096)    NULL
+);
+""")
+
 # Recreate procedure (MySQL 8.4 does NOT support CREATE OR REPLACE PROCEDURE)
 sess.run_sql("DROP PROCEDURE IF EXISTS zabbix.sp_housekeeping_custom")
 
@@ -63,7 +82,6 @@ BEGIN
         deleted_rows,
         duration_us,
         deleted_by,
-        executed_at,
         started_at,
         finished_at,
         reason,
@@ -75,7 +93,6 @@ BEGIN
         v_deleted,
         v_us,
         CURRENT_USER(),
-        v_end,
         v_start,
         v_end,
         p_reason,
@@ -85,10 +102,10 @@ END
 """)
 
 # Recreate procedure (MySQL 8.4 does NOT support CREATE OR REPLACE PROCEDURE)
-sess.run_sql("DROP EVENT IF EXISTS ev_housekeeping_custom")
+sess.run_sql("DROP EVENT IF EXISTS zabbix.ev_housekeeping_custom")
 
 sess.run_sql("""
-CREATE EVENT ev_housekeeping_custom
+CREATE EVENT zabbix.ev_housekeeping_custom
     ON SCHEDULE EVERY 1 DAY
     STARTS TIMESTAMP(CURRENT_DATE, '22:00:00')
     DO

@@ -1,23 +1,20 @@
-CREATE INDEX idx_historylog_clock ON history_log (clock);
 
-
-CREATE TABLE IF NOT EXISTS housekeeping_custom (
+DROP TABLE IF EXISTS zabbix.housekeeping_log;
+CREATE TABLE IF NOT EXISTS zabbix.housekeeping_log (
     id            BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     schema_name   VARCHAR(128)     NOT NULL,
     table_name    VARCHAR(128)     NOT NULL,
     deleted_rows  BIGINT UNSIGNED NOT NULL,
     deleted_by    VARCHAR(128)    NOT NULL,
-    executed_at   TIMESTAMP       NOT NULL,
     started_at      TIMESTAMP     NOT NULL, 
     finished_at     TIMESTAMP     NOT NULL,
     duration_us     BIGINT UNSIGNED NULL,
     reason          VARCHAR(1024)    NULL,
     sql_statement   VARCHAR(4096)    NULL
-);
 
 
-DROP TABLE IF EXISTS housekeeping_targets;
-CREATE TABLE IF NOT EXISTS housekeeping_targets (
+DROP TABLE IF EXISTS zabbix.housekeeping_targets;
+CREATE TABLE IF NOT EXISTS zabbix.housekeeping_targets (
     schema_name   VARCHAR(128)     NOT NULL,
     table_name    VARCHAR(128)     NOT NULL,
     rentention_days  INT UNSIGNED NOT NULL,
@@ -25,17 +22,9 @@ CREATE TABLE IF NOT EXISTS housekeeping_targets (
     CONSTRAINT check_retention CHECK (rentention_days BETWEEN 1 AND 365)
 );
 
-SHOW PROCEDURE STATUS WHERE Db = 'zabbix';
-SHOW EVENTS FROM zabbix;
 
-select * from housekeeping_custom;
-CALL sp_housekeeping_custom("zabbix", "history_log", 30, "housekeeping new");
-\py
-\source sp_housekeeping_custom.py
-
-
-
-CREATE PROCEDURE sp_housekeeping_custom (
+DROP PROCEDURE IF EXISTS zabbix.sp_housekeeping_custom
+CREATE PROCEDURE zabbix.sp_housekeeping_custom (
     IN  p_schema_name   VARCHAR(128),
     IN  p_table_name    VARCHAR(128),
     IN  p_retention     BIGINT UNSIGNED,
@@ -87,17 +76,16 @@ BEGIN
     SET v_us = TIMESTAMPDIFF(MICROSECOND, v_start, v_end);
 
     -- Log the housekeeping run
-    INSERT INTO housekeeping_custom (
+    INSERT INTO zabbix.housekeeping_log (
         schema_name,
         table_name,
         deleted_rows,
         duration_us,
         deleted_by,
-        executed_at,
         started_at,
         finished_at,
         reason,
-        where_summary
+        sql_statement
     )
     VALUES (
         p_schema_name,
@@ -105,7 +93,6 @@ BEGIN
         v_deleted,
         v_us,
         CURRENT_USER(),
-        v_end,       -- use end time as executed_at
         v_start,
         v_end,
         p_reason,
@@ -114,8 +101,8 @@ BEGIN
 END
 
 
-DROP EVENT IF EXISTS ev_housekeeping_custom;
-CREATE EVENT ev_housekeeping_custom
+DROP EVENT IF EXISTS zabbix.ev_housekeeping_custom;
+CREATE EVENT zabbix.ev_housekeeping_custom
     ON SCHEDULE EVERY 1 DAY
     STARTS TIMESTAMP(CURRENT_DATE, '22:00:00')
     DO

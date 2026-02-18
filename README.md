@@ -6,7 +6,7 @@
 ## 1. Project Overview
 This project provides a MySQL process to perform automated housekeeping (time‑based deletion) on large, append‑only time‑series tables. It also records detailed execution metrics in a centralized housekeeping log for auditability and operations insight.
 
-**Primary domain:** operational housekeeping / data retention for monitoring or telemetry data
+Primary domain: operational housekeeping / data retention for monitoring or telemetry data
 
 ## 2. Architecture & Concepts
 
@@ -25,10 +25,10 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
 
 ### Tables
 - `housekeeping_log`  
-  *Purpose:* Central log for housekeeping runs.  
-  *Columns used by the procedure (must exist):*
+  Purpose: Central log for housekeeping runs.  
+  Columns used by the procedure :
   - `schema_name`, `table_name`, `deleted_rows`, `duration_us`,
-  - `deleted_by`, `executed_at`, `started_at`, `finished_at`,
+  - `deleted_by`, `started_at`, `finished_at`,
   - `reason`, `sql_statement`.
 
 - `zabbix.<APPLICATION-TABLES>`  
