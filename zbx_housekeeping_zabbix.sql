@@ -112,3 +112,22 @@ CREATE EVENT zabbix.ev_housekeeping_custom
             CALL zabbix.sp_housekeeping_custom('zabbix', 'history_log', 26, 'daily housekeeping via scheduler' );
             CALL zabbix.sp_housekeeping_custom('zabbix', 'trends', 160, 'daily housekeeping via scheduler' );
         END
+
+
+select CONCAT('CREATE INDEX idx_',table_name,'_clock ON ',table_name, ' ( clock );') as new_index 
+from information_schema.tables 
+where table_schema = 'zabbix' 
+    and table_name like 'history%' Or TABLE_NAME LIKE 'trends%'
+ORDER BY table_name;
++----------------------------------------------------------------+
+| new_index                                                      |
++----------------------------------------------------------------+
+| CREATE INDEX idx_history_clock ON history ( clock );           |
+| CREATE INDEX idx_history_bin_clock ON history_bin ( clock );   |
+| CREATE INDEX idx_history_log_clock ON history_log ( clock );   |
+| CREATE INDEX idx_history_str_clock ON history_str ( clock );   |
+| CREATE INDEX idx_history_text_clock ON history_text ( clock ); |
+| CREATE INDEX idx_history_uint_clock ON history_uint ( clock ); |
+| CREATE INDEX idx_trends_clock ON trends ( clock );             |
+| CREATE INDEX idx_trends_uint_clock ON trends_uint ( clock );   |
++----------------------------------------------------------------+

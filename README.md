@@ -4,22 +4,25 @@
 </div>
 
 ## 1. Project Overview
-This project provides a MySQL process to perform automated housekeeping (time‑based deletion) on large, append‑only time‑series tables. It also records detailed execution metrics in a centralized housekeeping log for auditability and operations insight.
+This project provides a MySQL process to perform automated housekeeping (time‑based deletion) on large tables. It also records detailed execution metrics in a centralized housekeeping log for auditability and operations insight for the Zabbix Monitoring solution.
 
-Primary domain: operational housekeeping / data retention for monitoring or telemetry data
+
+The housekeeping is engineered based on these principles:
+- Deterministic deletes >> MySQL group replication compatible
+- Bounded batch size >> Binlog friendly
+- Repeatable housekeeping >> Predictiable load for the db system
 
 ## 2. Architecture & Concepts
 
-**Key concepts / data domains**
+Key concepts
 - **Time‑series housekeeping:** Remove rows older than a configurable retention based on `clock`.
 - **Operational logging:** Persist run metadata (who, when, how many rows, duration, executed SQL) to `housekeeping_log`.
-- **Scheduler orchestration:** A daily event triggers the procedure for selected tables.
+- **Scheduler orchestration:** A hourly event triggers the procedure for selected tables.
 
 The design centers on a **parameterized stored procedure** that:
 - Safely performs a **dynamic DELETE** against a target table based on a retention period (in days) evaluated against a `clock` timestamp column.
 - Measures execution time, captures rows deleted, and **logs each run** to a `housekeeping_log` table.
-
-A **MySQL Event** schedules the procedure to run daily and invokes it for specific target tables with table‑specific retention periods.
+- A **MySQL Event** schedules the procedure to run daily and invokes it for specific target tables with table‑specific retention periods.
 
 ## 3. SQL Object Inventory
 
@@ -27,36 +30,30 @@ A **MySQL Event** schedules the procedure to run daily and invokes it for specif
 - `housekeeping_log`  
   Purpose: Central log for housekeeping runs.  
   Columns used by the procedure :
-  - `schema_name`, `table_name`, `deleted_rows`, `duration_us`,
-  - `deleted_by`, `started_at`, `finished_at`,
-  - `reason`, `sql_statement`.
-
-- `zabbix.<APPLICATION-TABLES>`  
-  *Purpose:* Time‑series history (inferred from name). Must contain a `clock` column comparable to `UNIX_TIMESTAMP(...)`.
-
-> **Note:** Only the above tables are referenced (directly or through parameters). The procedure is generic and can target any table `<schema>.<table>` that contains a `clock` field of a compatible numeric type.
 
 ### Stored Procedures
-- `sp_housekeeping_custom` (Stored Procedure)  
-  *Purpose:* Delete rows older than a specified retention (days) from a target table and log the run.  
+- `sp_housekeeping_history_trends` 
+  *Purpose:* Delete rows older than a specified retention (days) from history and trend tables and log the run.  
   *Inputs:*  
   - `p_schema_name VARCHAR(128)` — Target schema for deletion.  
   - `p_table_name VARCHAR(128)` — Target table for deletion.  
   - `p_retention BIGINT UNSIGNED` — Retention in **days**; must be `>= 1`.  
   - `p_reason VARCHAR(1024)` — Free‑text reason for audit logging.  
-  *Behavior & key logic:*  
-  - Validates inputs (non‑empty schema/table; retention `>= 1`).  
-  - Builds a **dynamic** `DELETE FROM <schema>.<table> WHERE clock < UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)` with backtick‑escaping.  
-  - Measures duration (`NOW(6)`, `TIMESTAMPDIFF(MICROSECOND, ...)`).  
-  - Captures `ROW_COUNT()` for deleted rows.  
-  - Inserts a log row into `housekeeping_log` with the generated SQL and metadata.  
+
+- `sp_housekeeping_audit` 
+  *Purpose:* Delete rows older than a specified retention (days) from audit tables and log the run.  
+  *Inputs:*  
+  - `p_schema_name VARCHAR(128)` — Target schema for deletion.  
+  - `p_table_name VARCHAR(128)` — Target table for deletion.  
+  - `p_retention BIGINT UNSIGNED` — Retention in **days**; must be `>= 1`.  
+  - `p_reason VARCHAR(1024)` — Free‑text reason for audit logging.  
+
 
 ### Events / Schedulers
 - `ev_housekeeping_custom` (MySQL Event)  
-  *Purpose:* Run daily housekeeping at a fixed time.  
-  *Schedule:* `EVERY 1 DAY STARTS TIMESTAMP(CURRENT_DATE, '22:00:00')`.  
-  *Actions:*  
-  - `CALL zabbix.sp_housekeeping_custom( <SCHEMA> , <TABLE>, <RETENTION-DAYS>, <COMMENT>);`  
+  *Purpose:* Run every full hour housekeeping procedures.  
+  *Schedule:* `STARTS TIMESTAMP( CURRENT_DATE + INTERVAL (HOUR(NOW()) + 1) HOUR,'00:00:00' `.  
+
 
 ### Sequences / Synonyms / Views / Triggers
 - _None._
@@ -102,12 +99,10 @@ MySQL MYSQLSYSTEM:33060+ ssl Py> \source sp_housekeeping_custom.py
 ```
 
 **Script creation order (implied by dependencies):**
-1. **Create table** `housekeeping_log` with at least the columns used by the procedure:
-   - `schema_name`, `table_name`, `deleted_rows`, `duration_us`,
-   - `deleted_by`, `executed_at`, `started_at`, `finished_at`,
-   - `reason`, `sql_statement`.
-2. **Create the stored procedure** `sp_housekeeping_custom` in the intended schema (the event calls it as `zabbix.sp_housekeeping_custom`, so ensure it exists in `zabbix` or adjust the event accordingly).
-3. **Create the event** `ev_housekeeping_custom` (ensure the MySQL Event Scheduler is enabled).
+1. **Create Indexes** `idx_<TABLENAME>_clock`
+1. **Create table** `housekeeping_log`
+2. **Create the stored procedures** `sp_housekeeping_audit` and `sp_housekeeping_history_trends` 
+3. **Create the event** `ev_housekeeping_custom`
 
 
 ## 6. Operational Notes (Optional)
@@ -121,5 +116,4 @@ MySQL MYSQLSYSTEM:33060+ ssl Py> \source sp_housekeeping_custom.py
 ## 7. Limitations & Assumptions
 - **Assumption:** The procedure resides in (or is referenced from) the `zabbix` schema, matching the event’s `CALL zabbix.sp_housekeeping_custom(...)`.  
 - **Assumption:** Target tables (`zabbix.history_log`, `zabbix.trends`, ...) contain a `clock` column suitable for comparison with `UNIX_TIMESTAMP(NOW() - INTERVAL <retention> DAY)`.  
-- **Operational requirement:** Appropriate privileges are required to create procedures/events and to delete from target tables and insert into `housekeeping_log`.  
-- **Time zone:** The 22:00 schedule follows the server’s time zone configuration. Adjust as needed for your operations window.
+
