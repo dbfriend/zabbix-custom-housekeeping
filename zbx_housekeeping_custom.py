@@ -40,58 +40,67 @@ CREATE PROCEDURE zabbix.sp_housekeeping_history_trends (
     IN  p_retention     BIGINT UNSIGNED,
     IN  p_reason        VARCHAR(1024)
 )
-COMMENT "version 1.1 - 2-april-2026"
+COMMENT 'version 1.2 - 08-april-2026'
 BEGIN
-    DECLARE v_start   DATETIME(6);
-    DECLARE v_end     DATETIME(6);
-    DECLARE v_deleted BIGINT DEFAULT 0;
-    DECLARE v_us      BIGINT UNSIGNED;
-    DECLARE v_retention_ts    BIGINT UNSIGNED;
+    DECLARE v_start        DATETIME(6);
+    DECLARE v_end          DATETIME(6);
+    DECLARE v_us           BIGINT UNSIGNED;
+    DECLARE v_retention_ts BIGINT UNSIGNED;
 
-    -- Safety checks (optional but recommended)
+    DECLARE v_rows_deleted BIGINT DEFAULT 0;
+    DECLARE v_total_deleted BIGINT DEFAULT 0;
+
+    -- ------------------------------------------------
+    -- Safety checks
+    -- ------------------------------------------------
     IF p_schema_name IS NULL OR p_schema_name = '' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'p_schema_name must not be empty';
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'p_schema_name must not be empty';
     END IF;
 
     IF p_table_name IS NULL OR p_table_name = '' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'p_table_name must not be empty';
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'p_table_name must not be empty';
     END IF;
 
     IF p_retention IS NULL OR p_retention < 1 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'p_rentention must not >= 1';
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'p_retention must be >= 1';
     END IF;
 
     -- Create deterministic time for group replication
-    SET v_retention_ts = UNIX_TIMESTAMP(NOW() - INTERVAL p_retention DAY);    
+    SET v_retention_ts = UNIX_TIMESTAMP(NOW() - INTERVAL p_retention DAY);
 
-    -- Build dynamic DELETE safely: escape backticks in identifiers 
-    SET @sql = CONCAT(
-        'DELETE FROM `', REPLACE(p_schema_name,'`','``'),
-        '`.`', REPLACE(p_table_name,'`','``'),
-        '` WHERE clock < ',
-        v_retention_ts,
-        ' ORDER BY itemid, clock ',
-        ' LIMIT 300000'
-    );
-
-    -- Start timer
     SET v_start = NOW(6);
 
-    -- Execute dynamic DELETE
-    PREPARE stmt FROM @sql;
-    EXECUTE stmt;
+    -- Batched delete loop
+    REPEAT
+        SET @sql = CONCAT(
+            'DELETE FROM `', REPLACE(p_schema_name,'`','``'),
+            '`.`', REPLACE(p_table_name,'`','``'),
+            '` WHERE clock < ',
+            v_retention_ts,
+            ' ORDER BY itemid, clock ',
+            ' LIMIT 300000'
+        );
 
-    -- Rows affected by the DELETE we just executed
-    SET v_deleted = ROW_COUNT();
-    DEALLOCATE PREPARE stmt;
+        PREPARE stmt FROM @sql;
+        EXECUTE stmt;
 
-    -- End timer
+        SET v_rows_deleted = ROW_COUNT();
+        SET v_total_deleted = v_total_deleted + v_rows_deleted;
+
+        DEALLOCATE PREPARE stmt;
+
+        COMMIT;
+
+    UNTIL v_rows_deleted = 0
+    END REPEAT;
+
     SET v_end = NOW(6);
-
-    -- Compute duration in microseconds
     SET v_us = TIMESTAMPDIFF(MICROSECOND, v_start, v_end);
 
-    -- Log the housekeeping run
+    -- Log housekeeping run
     INSERT INTO zabbix.housekeeping_log (
         schema_name,
         table_name,
@@ -106,17 +115,15 @@ BEGIN
     VALUES (
         p_schema_name,
         p_table_name,
-        v_deleted,
+        v_total_deleted,
         v_us,
         CURRENT_USER(),
         v_start,
         v_end,
         p_reason,
-        @sql
+        CONCAT( @sql, ' (looped)' )
     );
-             
-    COMMIT;
-END
+END;
 """)
 
 # Recreate procedure (MySQL 8.4 does NOT support CREATE OR REPLACE PROCEDURE)
@@ -128,7 +135,7 @@ CREATE PROCEDURE zabbix.sp_housekeeping_audit (
     IN  p_retention     BIGINT UNSIGNED,
     IN  p_reason        VARCHAR(1024)
 )
-COMMENT "version 1.1 - 2-april-2026"
+COMMENT "version 1.2 - 08-april-2026"
 BEGIN
     DECLARE v_start   DATETIME(6);
     DECLARE v_end     DATETIME(6);
